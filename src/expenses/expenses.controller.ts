@@ -1,9 +1,26 @@
-import { Controller, Get, Param, Req, UseGuards } from '@nestjs/common';
-import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
+import {
+  ApiCreatedResponse,
+  ApiOkResponse,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger';
 import type { AuthenticatedRequest } from '../auth/authenticated-request.js';
 import { JwtAuthGuard } from '../auth/guards/auth.guard.js';
 import { ApiErrors, ApiJwtAuth } from '../common/swagger/api-docs.decorators.js';
-import { ExpensePageDto } from './dto/expense-responses.dto.js';
+import { CreateExpenseDto } from './dto/create-expense.dto.js';
+import {
+  ExpensePageDto,
+  ExpenseResponseDto,
+} from './dto/expense-responses.dto.js';
 import { ExpensesService } from './expenses.service.js';
 
 // Toutes les routes de ce contrôleur commencent par /wallets/:walletId/expenses
@@ -26,7 +43,22 @@ export class ExpensesController {
     return this.expensesService.findAll(walletId, request.user.userId);
   }
 
-  // TODO étape 2 : route POST (déclarer une dépense). Utilisez @Body() avec CreateExpenseDto.
+  @Post()
+  @ApiOperation({ summary: 'Déclarer une dépense' })
+  @ApiCreatedResponse({ type: ExpenseResponseDto })
+  @ApiErrors({
+    400: 'Données invalides.',
+    403: 'Accès refusé.',
+    404: 'Porte-monnaie introuvable.',
+    409: 'Porte-monnaie clôturé.',
+  })
+  create(
+    @Param('walletId') walletId: string,
+    @Req() request: AuthenticatedRequest,
+    @Body() dto: CreateExpenseDto,
+  ) {
+    return this.expensesService.create(walletId, request.user.userId, dto);
+  }
 
   // TODO étape 3 : route DELETE ':id' protégée par ExpenseOwnerGuard (@UseGuards).
   //   Répondre 204 (@HttpCode(HttpStatus.NO_CONTENT)).
