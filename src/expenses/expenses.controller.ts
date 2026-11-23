@@ -1,19 +1,22 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
+  HttpCode,
+  HttpStatus,
   Param,
   Post,
-  Req,
   UseGuards,
 } from '@nestjs/common';
 import {
   ApiCreatedResponse,
+  ApiNoContentResponse,
   ApiOkResponse,
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
-import type { AuthenticatedRequest } from '../auth/authenticated-request.js';
+import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
 import { JwtAuthGuard } from '../auth/guards/auth.guard.js';
 import { ApiErrors, ApiJwtAuth } from '../common/swagger/api-docs.decorators.js';
 import { CreateExpenseDto } from './dto/create-expense.dto.js';
@@ -22,6 +25,7 @@ import {
   ExpenseResponseDto,
 } from './dto/expense-responses.dto.js';
 import { ExpensesService } from './expenses.service.js';
+import { ExpenseOwnerGuard } from './guards/expense-owner.guard.js';
 
 // Toutes les routes de ce contrôleur commencent par /wallets/:walletId/expenses
 // et exigent un jeton JWT (JwtAuthGuard) : c'est déjà configuré.
@@ -38,9 +42,9 @@ export class ExpensesController {
   @ApiErrors({ 403: 'Accès refusé.', 404: 'Porte-monnaie introuvable.' })
   findAll(
     @Param('walletId') walletId: string,
-    @Req() request: AuthenticatedRequest,
+    @CurrentUser('userId') userId: string,
   ) {
-    return this.expensesService.findAll(walletId, request.user.userId);
+    return this.expensesService.findAll(walletId, userId);
   }
 
   @Post()
@@ -54,14 +58,26 @@ export class ExpensesController {
   })
   create(
     @Param('walletId') walletId: string,
-    @Req() request: AuthenticatedRequest,
+    @CurrentUser('userId') userId: string,
     @Body() dto: CreateExpenseDto,
   ) {
-    return this.expensesService.create(walletId, request.user.userId, dto);
+    return this.expensesService.create(walletId, userId, dto);
   }
 
-  // TODO étape 3 : route DELETE ':id' protégée par ExpenseOwnerGuard (@UseGuards).
-  //   Répondre 204 (@HttpCode(HttpStatus.NO_CONTENT)).
-  //   Refactorisez aussi les routes précédentes pour utiliser @CurrentUser('userId')
-  //   à la place de @Req().
+  @Delete(':id')
+  @UseGuards(ExpenseOwnerGuard)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Supprimer une dépense' })
+  @ApiNoContentResponse({ description: 'Dépense supprimée.' })
+  @ApiErrors({
+    403: 'Accès refusé.',
+    404: 'Dépense ou porte-monnaie introuvable.',
+    409: 'Ce porte-monnaie est clôturé.',
+  })
+  async remove(
+    @Param('walletId') walletId: string,
+    @Param('id') id: string,
+  ) {
+    await this.expensesService.remove(walletId, id);
+  }
 }
