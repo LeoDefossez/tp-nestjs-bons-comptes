@@ -45,10 +45,30 @@ export function calculateBalances(
   totalAmount: number,
   members: MemberPayment[],
 ): { balances: MemberBalance[]; transfers: Transfer[] } {
-  void totalAmount;
-  void members;
-  void byUserId;
-  throw new Error('TODO bonus : calculateBalances n’est pas encore écrite.');
+  const sorted = [...members].sort(byUserId);
+
+  if (sorted.length === 0) {
+    return { balances: [], transfers: [] };
+  }
+
+  const baseShare = Math.floor(totalAmount / sorted.length);
+  const remainder = totalAmount % sorted.length;
+
+  const balances: MemberBalance[] = sorted.map((member, index) => {
+    const shareAmount = baseShare + (index < remainder ? 1 : 0);
+    const balance = member.paidAmount - shareAmount;
+    return {
+      userId: member.userId,
+      name: member.name,
+      paidAmount: member.paidAmount,
+      shareAmount,
+      balance,
+    };
+  });
+
+  const transfers = computeTransfers(balances);
+
+  return { balances, transfers };
 }
 
 function byAmountThenUserId(
